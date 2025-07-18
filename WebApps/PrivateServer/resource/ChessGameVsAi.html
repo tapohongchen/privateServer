@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡码五子棋</title>
+    <style>
+        /* 全局样式 */
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f8f8f8;
+            position: relative;
+        }
+
+        /* 标题样式 */
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 棋盘样式 */
+        #board {
+            display: grid;
+            grid-template-columns: repeat(15, 40px);
+            grid-template-rows: repeat(15, 40px);
+            gap: 0px;
+            border: 2px solid #333;
+            background-color: #DEB887;
+            position: relative;
+            margin: 20px auto;
+        }
+
+        .cell {
+            width: 40px;
+            height: 40px;
+            border: 1px solid #666;
+            position: relative;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+        .cell.black::after,
+        .cell.white::after {
+            content: '';
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .cell.black::after {
+            background-color: #000;
+        }
+
+        .cell.white::after {
+            background-color: #fff;
+            border: 1px solid #000;
+        }
+
+        /* 胜负结果提示框 */
+        #result {
+            margin-top: 10px;
+            font-size: 20px;
+            color: red;
+            font-weight: bold;
+        }
+
+        /* 游戏控制区样式 */
+        .game-container {
+            display: flex;
+            align-items: flex-start;
+            position: relative;
+        }
+
+        .control-panel {
+            position: absolute;
+            left: 100%;
+            margin-left: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            top: 20px;
+        }
+
+        .control-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .control-btn:hover {
+            background-color: #45a049;
+        }
+
+        .control-btn.return {
+            background-color: #f44336;
+        }
+
+        .control-btn.return:hover {
+            background-color: #da190b;
+        }
+
+        .loader {
+            border: 8px solid #f3f3f3;
+            /* Light grey */
+            border-top: 8px solid #3498db;
+            /* Blue */
+            border-radius: 50%;
+            width: 40px;
+            /* Size of the loader */
+            height: 40px;
+            /* Size of the loader */
+            animation: spin 1s linear infinite;
+            /* Animation */
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="logout-bar" style="
+        position: absolute;
+        top: 8px;
+        right: 20px;
+        ">
+        <button onclick="logout()" style="
+            padding: 4px 12px;
+            font-size: 0.9em;
+            background-color: #ff4d4f;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        ">🚪 退出</button>
+    </div>
+    <!-- 标题 -->
+    <h1>卡码五子棋</h1>
+
+    <!-- 游戏容器 -->
+    <div class="game-container">
+        <!-- 棋盘 -->
+        <div id="board"></div>
+
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <button class="control-btn" onclick="restartGame()">重新开始</button>
+            <button class="control-btn return" onclick="returnToMenu()">返回菜单</button>
+        </div>
+    </div>
+
+    <!-- 胜负提示 -->
+    <div id="result"></div>
+
+    <!-- 在 HTML 中添加一个用于显示获胜方的元素 -->
+    <div id="winner-display"
+        style="font-size: 24px; color: red; display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(255, 255, 255, 0.8); padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);">
+        恭喜你，获胜了！
+    </div>
+
+    <!-- 在 HTML 中添加一个用于显示思考提示的元素 -->
+    <div id="thinking-message"
+        style="font-size: 20px; color: blue; display: none; position: absolute; top: 45%; left: 50%; transform: translateX(-50%);">
+        AI正在思考中，请等待...
+    </div>
+
+    <div id="loading-animation"
+        style="display: none; position: absolute; top: 50%; left: 50%; transform: translateX(-50%);">
+        <div class="loader"></div>
+    </div>
+
+    <script>
+        // 将所有变量声明在一个对象中管理
+        const gameState = {
+            boardSize: 15,
+            boardState: null,
+            currentPlayer: 'black',
+            boardElement: null,
+            resultElement: null,
+            isGameActive: true,
+
+            // 添加重置函数
+            reset() {
+                this.boardState = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill("empty"));
+                this.currentPlayer = 'black';
+                this.isGameActive = true;
+                if (this.resultElement) {
+                    this.resultElement.textContent = '';
+                }
+            }
+        };
+        function logout() {
+            fetch('/user/logout', {
+                method: 'POST',
+                credentials: 'include'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.message === "logout successful") {
+                window.location.href = "/";
+                } else {
+                alert("退出失败：" + data.message);
+                }
+            })
+            .catch(err => {
+                console.error("退出请求失败", err);
+                alert("网络错误，退出失败");
+            });
+        }
+        // 初始化函数
+        function initializeGame() {
+            gameState.boardState = Array(15).fill().map(() => Array(15).fill("empty")); // 初始化棋盘状态
+            gameState.currentPlayer = 'black'; // 设置当前玩家
+            gameState.isGameActive = true; // 设置游戏状态为活动
+            createBoard(); // 创建棋盘
+            addEventListeners(); // 添加事件监听
+        }
+
+        // 创建棋盘
+        function createBoard() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = ''; // 清空棋盘
+
+            for (let i = 0; i < 15; i++) {
+                for (let j = 0; j < 15; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+
+        // 添加判断落子是否合法的函数
+        function isValidMove(x, y) {
+            // 检查是否在棋盘范围内
+            if (x < 0 || x >= 15 || y < 0 || y >= 15) {
+                return false;
+            }
+            // 检查该位置是否已经有棋子
+            if (gameState.boardState[x][y] !== "empty") {
+                return false;
+            }
+            return true;
+        }
+
+        let isGameOver = false; // 游戏结束标志
+        let isThinking = false; // AI 思考状态标志
+
+        // 修改处理点击的函数
+        function handleCellClick(event) {
+            if (isGameOver || !gameState.isGameActive || isThinking || !event.target.classList.contains('cell')) return;
+
+            const cell = event.target;
+            const x = parseInt(cell.dataset.row);
+            const y = parseInt(cell.dataset.col);
+
+            // 前端先判断是否合法
+            if (!isValidMove(x, y)) {
+                alert('此位置不能落子！');
+                return;
+            }
+
+            // 立即在前端显示棋子
+            cell.classList.add('black'); // 添加黑色棋子类
+            gameState.boardState[x][y] = 'black'; // 更新游戏状态
+            gameState.currentPlayer = 'white'; // 切换到下一个玩家
+
+            // 显示思考提示
+            showThinkingMessage();
+
+            // 发送请求到服务器
+            isThinking = true; // 设置思考状态
+            fetch('/aiBot/move', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ x, y })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    isThinking = false; // 重置思考状态
+                    hideThinkingMessage(); // 隐藏思考提示
+
+                    // 处理游戏结果
+                    if (data.winner !== 'none') {
+                        isGameOver = true; // 设置游戏结束标志
+                        hideThinkingMessage(); // 隐藏思考提示
+                        if (data.winner !== 'human') {
+                            const aiMove = data.last_move;
+                            const aiCell = document.querySelector(
+                                `[data-row="${aiMove.x}"][data-col="${aiMove.y}"]`
+                            );
+                            aiCell.classList.add('white'); // 添加白色棋子类
+                            gameState.boardState[aiMove.x][aiMove.y] = 'white'; // 更新游戏状态
+                            gameState.currentPlayer = 'black'; // 切换回人类玩家
+                        }
+                        setTimeout(() => {
+                            alert(data.winner === 'human' ? '恭喜你，获胜了！' : 'AI获胜！');
+                            displayWinner(data.winner); // 显示获胜方
+                            disableBoard(); // 禁用棋盘
+                            return; // 确保在胜利时直接返回，不执行后续逻辑
+                        }, 100);
+                    }
+
+                    if (data.status === 'error') {
+                        // 如果服务器返回错误，回滚前端的改动
+                        alert(data.message);
+                        return;
+                    }
+
+                    // 显示 AI 的落子
+                    const aiMove = data.last_move;
+                    const aiCell = document.querySelector(
+                        `[data-row="${aiMove.x}"][data-col="${aiMove.y}"]`
+                    );
+                    aiCell.classList.add('white'); // 添加白色棋子类
+                    gameState.boardState[aiMove.x][aiMove.y] = 'white'; // 更新游戏状态
+                    gameState.currentPlayer = 'black'; // 切换回人类玩家
+                });
+        }
+
+        // 显示获胜方
+        function displayWinner(winner) {
+            const winnerDisplay = document.getElementById('winner-display');
+            winnerDisplay.textContent = winner === 'human' ? '恭喜你，获胜了！' : 'AI获胜！';
+            winnerDisplay.style.display = 'block'; // 显示获胜信息
+        }
+
+        // 禁用棋盘
+        function disableBoard() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.removeEventListener('click', handleCellClick); // 移除点击事件
+            });
+        }
+
+        // 重新开始游戏
+        function restartGame() {
+            isGameOver = false; // 重置游戏结束标志
+            isThinking = false; // 重置 AI 思考状态标志
+            gameState.boardState = Array(15).fill().map(() => Array(15).fill("empty")); // 重新初始化棋盘状态
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.classList.remove('black', 'white'); // 移除所有棋子类
+                cell.addEventListener('click', handleCellClick); // 重新添加点击事件
+            });
+            document.getElementById('winner-display').style.display = 'none'; // 隐藏获胜信息
+            document.getElementById('thinking-message').style.display = 'none'; // 隐藏思考提示
+            document.getElementById('loading-animation').style.display = 'none'; // 隐藏加载动画
+            gameState.currentPlayer = 'black'; // 重置当前玩家
+            gameState.isGameActive = true; // 重置游戏状态
+        }
+
+        // 添加事件监听
+        function addEventListeners() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.addEventListener('click', handleCellClick);
+            });
+        }
+
+        // 添加返回菜单函数
+        function returnToMenu() {
+            isGameOver = false; // 重置游戏结束标志
+            isThinking = false; // 重置 AI 思考状态标志
+            // 显示加载状态
+            document.body.innerHTML = `
+                <div id="loading-container">
+                    <div id="loading-title">卡码五子棋</div>
+                    <div class="progress-bar">
+                        <div class="progress"></div>
+                    </div>
+                    <div id="loading-text">加载中...</div>
+                </div>
+            `;
+
+            // 清理游戏状态
+            gameState.reset();
+
+            fetch('/menu', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'text/html'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('返回菜单失败');
+                    }
+                    return response.text();
+                })
+                .then(html => {
+                    // 使用 document.open/write/close 完全重置页面
+                    document.open();
+                    document.write(html);
+                    document.close();
+
+                    // 确保在页面加载完成后重新绑定事件
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', function () {
+                            const playAiButton = document.getElementById('play-ai');
+                            if (playAiButton) {
+                                playAiButton.addEventListener('click', startAiGame);
+                            }
+                        });
+                    } else {
+                        const playAiButton = document.getElementById('play-ai');
+                        if (playAiButton) {
+                            playAiButton.addEventListener('click', startAiGame);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('返回菜单失败，请重试！');
+                    // 恢复游戏界面
+                    location.reload();
+                });
+        }
+
+        // 添加必要的加载状态样式
+        const loadingStyles = `
+        <style>
+            #loading-container {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                text-align: center;
+                background-color: #1e1e2f;
+            }
+
+            #loading-title {
+                font-size: 2em;
+                margin-bottom: 20px;
+                color: #00c3ff;
+                text-shadow: 0 0 5px #00c3ff, 0 0 10px #008bff;
+            }
+
+            .progress-bar {
+                width: 300px;
+                height: 10px;
+                background-color: #2a2a3c;
+                border-radius: 5px;
+                overflow: hidden;
+                margin: 20px 0;
+            }
+
+            .progress {
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(90deg, #00c3ff, #008bff);
+                animation: progress 2s ease-in-out infinite;
+            }
+
+            #loading-text {
+                color: #fff;
+                font-size: 1.2em;
+            }
+
+            @keyframes progress {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(100%); }
+            }
+        </style>
+        `;
+
+        // 在页面加载时添加样式
+        document.head.insertAdjacentHTML('beforeend', loadingStyles);
+
+        // 确保在 DOM 加载完成后初始化
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function () {
+                initializeGame();
+            });
+        } else {
+            initializeGame();
+        }
+
+        // 添加页面刷新/关闭时的处理
+        window.addEventListener('beforeunload', function (e) {
+            const userId = sessionStorage.getItem('userId');
+            if (userId) {
+                // 创建 Blob 对象，指定 content-type
+                const data = new Blob([JSON.stringify({
+                    userId: userId,
+                    type: 'refresh',
+                    gameType: 0
+                })], { type: 'application/json' });  // 设置正确的 Content-Type
+
+                // 使用 navigator.sendBeacon 发送异步请求
+                navigator.sendBeacon('/user/logout', data);
+            }
+        });
+
+        // 确保在页面加载时从 sessionStorage 获取 userId
+        document.addEventListener('DOMContentLoaded', function () {
+            const userId = sessionStorage.getItem('userId');
+            if (!userId) {
+                // 如果没有 userId，重定向到登录页面
+                window.location.href = '/entry';
+            }
+        });
+
+        // 显示思考提示和加载动画
+        function showThinkingMessage() {
+            const thinkingMessage = document.getElementById('thinking-message');
+            const loadingAnimation = document.getElementById('loading-animation');
+            thinkingMessage.style.display = 'block'; // 显示提示
+            loadingAnimation.style.display = 'block'; // 显示加载动画
+        }
+
+        // 隐藏思考提示和加载动画
+        function hideThinkingMessage() {
+            const thinkingMessage = document.getElementById('thinking-message');
+            const loadingAnimation = document.getElementById('loading-animation');
+            thinkingMessage.style.display = 'none'; // 隐藏提示
+            loadingAnimation.style.display = 'none'; // 隐藏加载动画
+        }
+    </script>
+</body>
+
+</html>

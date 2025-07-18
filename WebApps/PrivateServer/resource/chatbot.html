@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>智能聊天</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            background: linear-gradient(to right, #599cad, #2a5298);
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #loading-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        #loading-title {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: #00c3ff;
+            text-shadow: 0 0 6px #00c3ff, 0 0 10px #0072ff;
+        }
+
+        .progress-bar {
+            width: 300px;
+            height: 20px;
+            background: #444;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 10px #000;
+        }
+
+        .progress-bar-inner {
+            height: 100%;
+            background: linear-gradient(to right, #599cad, #2a5298);
+            width: 0;
+            transition: width 1.5s ease;
+        }
+
+        #loading-text {
+            margin-top: 15px;
+            font-size: 1.2em;
+            color: #ccc;
+        }
+
+        #chat-container {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #chat-header {
+            background: linear-gradient(45deg, #00c6ff, #0072ff);
+            padding: 20px;
+            text-align: center;
+            font-size: 1.8em;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            color: #fff;
+        }
+
+        #chat-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+
+        .user {
+            align-self: flex-end;
+            background: linear-gradient(45deg, #00c6ff, #0072ff);
+            text-align: right;
+        }
+
+        .bot {
+            align-self: flex-start;
+            background-color: #444;
+        }
+
+        #chat-input {
+            display: flex;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.4);
+            border-top: 1px solid #333;
+        }
+
+        #model-select {
+            width: 150px;
+            margin-right: 10px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        #input-text {
+            flex: 1;
+            padding: 10px;
+            font-size: 1em;
+            border-radius: 5px;
+            border: none;
+            background-color: #333;
+            color: #fff;
+            margin-right: 10px;
+        }
+
+        #send-btn {
+            padding: 10px 15px;
+            font-size: 1em;
+            background: linear-gradient(45deg, #00c6ff, #0072ff);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 114, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        #send-btn:hover {
+            background: linear-gradient(45deg, #0072ff, #00c6ff);
+            box-shadow: 0 0 15px #00e1ff;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading-container">
+        <div id="loading-title">智能聊天</div>
+        <div class="progress-bar">
+            <div class="progress-bar-inner"></div>
+        </div>
+        <div id="loading-text">加载中...</div>
+    </div>
+
+    <div id="chat-container">
+        <div id="chat-header">智能聊天
+            <div id="logout-bar" style="
+                position: absolute;
+                top: 8px;
+                right: 20px;
+                ">
+                <button onclick="logout()" style="
+                    padding: 4px 12px;
+                    font-size: 0.9em;
+                    background-color: #ff4d4f;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                ">🚪 退出</button>
+            </div>
+        </div>
+
+        <div id="chat-content" id="chat-box"></div>
+
+        <div id="chat-input">
+            <select id="model-select">
+                <option value="gpt-3.5-turbo">ChatGPT</option>
+                <option value="qianfan">文心一言</option>
+            </select>
+            <input id="input-text" type="text" placeholder="请输入消息..." />
+            <button id="send-btn">发送</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const progressBar = document.querySelector('.progress-bar-inner');
+            const loadingContainer = document.getElementById('loading-container');
+            const chatContainer = document.getElementById('chat-container');
+
+            // 触发加载动画
+            void progressBar.offsetWidth;
+            progressBar.style.width = '100%';
+
+            // 显示主菜单
+            progressBar.addEventListener('transitionend', function () {
+                loadingContainer.style.display = 'none';
+                chatContainer.style.display = 'block';
+            });
+
+            // 兜底机制
+            setTimeout(() => {
+                if (loadingContainer.style.display !== 'none') {
+                    loadingContainer.style.display = 'none';
+                    chatContainer.style.display = 'block';
+                }
+            }, 2000);
+        });
+
+        const chatContent = document.getElementById('chat-content');
+        const inputText = document.getElementById('input-text');
+        const sendBtn = document.getElementById('send-btn');
+        const modelSelect = document.getElementById('model-select');
+
+        function appendMessage(text, sender) {
+            const msg = document.createElement('div');
+            msg.classList.add('message', sender);
+            msg.textContent = text;
+            chatContent.appendChild(msg);
+            chatContent.scrollTop = chatContent.scrollHeight;
+        }
+        function logout() {
+            fetch('/user/logout', {
+                method: 'POST',
+                credentials: 'include'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.message === "logout successful") {
+                window.location.href = "/";
+                } else {
+                alert("退出失败：" + data.message);
+                }
+            })
+            .catch(err => {
+                console.error("退出请求失败", err);
+                alert("网络错误，退出失败");
+            });
+        }
+        sendBtn.addEventListener('click', () => {
+            const message = inputText.value.trim();
+            const model = modelSelect.value;
+            if (!message) return;
+
+            appendMessage(message, 'user');
+            inputText.value = '';
+
+            fetch('/chatbot/message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: sessionStorage.getItem('userId') || '',
+                    model: model,
+                    message: message
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                appendMessage(data.reply || '[无响应]', 'bot');
+            })
+            .catch(err => {
+                console.error(err);
+                appendMessage('[请求失败]', 'bot');
+            });
+        });
+
+        // 页面鉴权检查
+        window.addEventListener('load', function() {
+            const userId = sessionStorage.getItem('userId');
+            if (!userId) {
+                // window.location.href = '/entry';
+                return;
+            }
+        });
+    </script>
+</body>
+</html>

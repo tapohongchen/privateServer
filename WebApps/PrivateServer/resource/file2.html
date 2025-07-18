@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>文件中心 - 私人服务器</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Microsoft YaHei", Arial, sans-serif;
+      background: linear-gradient(to right, #599cad, #2a5298);
+      color: #fff;
+    }
+
+    .container {
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    h1 {
+      font-size: 2.5em;
+      margin-bottom: 30px;
+      color: #aaff00;
+    }
+
+    .file-controls {
+      margin-bottom: 15px;
+      text-align: left;
+      font-size: 0.9em;
+    }
+
+    .file-controls button {
+      margin: 0 10px;
+      padding: 6px 14px;
+      font-size: 0.9em;
+      color: #fff;
+      background: linear-gradient(45deg, #00c6ff, #0072ff);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: none;
+      transition: all 0.3s ease;
+    }
+
+    .file-controls button:hover {
+      background-color: #00aaff;
+      box-shadow: 0 0 15px #00e1ff;
+    }
+
+    .file-upload {
+      margin-bottom: 30px;
+    }
+
+    .file-upload input[type="file"] {
+      padding: 10px;
+      background: #444;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      margin-right: 10px;
+    }
+
+    .file-list {
+      margin-top: 30px;
+      text-align: left;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .file-item {
+      background: #2e2e3f;
+      padding: 10px 20px;
+      margin: 8px 0;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .file-item a, .file-item span.folder {
+      color: #00c3ff;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .file-item a:hover, .file-item span.folder:hover {
+      background: linear-gradient(45deg, #0072ff, #00c6ff);
+      box-shadow: 0 0 15px #00e1ff;
+      text-decoration: underline;
+    }
+
+    .breadcrumb {
+      margin-top: 20px;
+      font-size: 0.95em;
+      color: #ccc;
+    }
+
+    .breadcrumb span {
+      cursor: pointer;
+      color: #00e1ff;
+    }
+
+    .breadcrumb span:hover {
+      text-decoration: underline;
+    }
+
+  </style>
+</head>
+<body>
+  <div id="logout-bar" style="
+    position: absolute;
+    top: 8px;
+    right: 20px;
+    ">
+    <button onclick="logout()" style="
+        padding: 4px 12px;
+        font-size: 0.9em;
+        background-color: #ff4d4f;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    ">🚪 退出</button>
+  </div>
+  <div class="container">
+    <h1>📁 文件上传/下载</h1>
+
+    <!-- 上传区域 -->
+    <div class="file-upload">
+      <form id="uploadForm">
+        <label class="file-select">
+            📂 选择文件
+            <input type="file" name="file" id="fileInput" required>
+        </label>
+        <button type="submit" class="upload-button">🚀 上传</button>
+      </form>      
+    </div>
+
+    <!-- 当前路径显示 -->
+    <div class="breadcrumb" id="breadcrumb">当前位置：/<span onclick="goToRoot()">根目录</span></div>
+
+    <!-- 文件列表 -->
+    <div class="file-list" id="file-list">
+      <h2>文件与文件夹：</h2>
+          <!-- 控制按钮区域 -->
+        <div class="file-controls">
+            <button onclick="goBack()">🔙 返回上一层</button>
+            <button onclick="createFolder()">📂 新建文件夹</button>
+        </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("uploadForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const fileInput = document.getElementById("fileInput");
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("请选择文件！");
+        return;
+      }
+
+      splitAndUpload(file);
+    });
+    let currentPath = "";
+    function logout() {
+      fetch('/user/logout', {
+          method: 'POST',
+          credentials: 'include'
+      })
+      .then(res => res.json())
+      .then(data => {
+          if (data.message === "logout successful") {
+          window.location.href = "/";
+          } else {
+          alert("退出失败：" + data.message);
+          }
+      })
+      .catch(err => {
+          console.error("退出请求失败", err);
+          alert("网络错误，退出失败");
+      });
+    }
+
+    function loadFiles() {
+      fetch(`/api/filecenter?path=${encodeURIComponent(currentPath)}`, {
+        method: 'GET',
+        credentials: 'include'
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const listContainer = document.getElementById('file-list');
+            listContainer.innerHTML = `
+                <h2>文件与文件夹：</h2>
+                <div class="file-controls">
+                    <button onclick="goBack()">🔙 返回上一层</button>
+                    <button onclick="createFolder()">📂 新建文件夹</button>
+                </div>
+                `;
+
+            // 更新路径显示
+            const breadcrumb = document.getElementById('breadcrumb');
+            breadcrumb.innerHTML = `当前位置：/<span onclick="goToRoot()">根目录</span>` + currentPath.split("/").filter(Boolean).map((p, idx, arr) => {
+              const partialPath = arr.slice(0, idx + 1).join("/");
+              return ` / <span onclick="navigateTo('${partialPath}')">${p}</span>`;
+            }).join("");
+
+            data.items.forEach(item => {
+              const div = document.createElement('div');
+              div.className = 'file-item';
+
+              if (item.type === 'folder') {
+                div.innerHTML = `
+                  <span class="folder" onclick="enterFolder('${item.name}')">📁 ${item.name}</span>
+                  <span>文件夹</span>
+                  <button onclick="deleteItem('${item.name}', true)">🗑 删除</button>
+                `;
+              } else {
+                div.innerHTML = `
+                  <span ondblclick="previewFile('${item.name}')">${item.name}</span>
+                  <a href="/download/${encodeURIComponent((currentPath ? currentPath + '/' : '') + item.name)}" download>下载</a>
+                  <button onclick="deleteItem('${item.name}', false)">🗑 删除</button>
+                `;
+              }
+
+              listContainer.appendChild(div);
+            });
+          } else {
+            alert("加载失败：" + data.message);
+          }
+        })
+        .catch(err => {
+          console.error("请求失败", err);
+        });
+    }
+
+    async function splitAndUpload(file) {
+      const muploadResp = await fetch('/file/mupload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ filename: file.name, filesize: file.size, path: currentPath})
+      });
+
+      const muploadData = await muploadResp.json();
+      const { uploadID, chunkSize, chunkCount } = muploadData;
+
+      const chunks = [];
+      for (let i = 0; i < chunkCount; i++) {
+        const start = i * chunkSize;
+        const end = Math.min(file.size, start + chunkSize);
+        chunks.push(file.slice(start, end));
+      }
+      // ⏩ 使用 Promise.all 并发上传所有分片
+      const maxRetries = 3;
+      const uploadChunk = async (blob, index) => {
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          try {
+            const resp = await fetch('/file/uppart', {
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/octet-stream', // 二进制数据
+                'chunkIndex': index,
+                'filename': uploadID
+              },
+              body: blob
+            });
+
+            const data = await resp.json();
+            if (data.success) return true;
+          } catch (e) {
+            console.warn(`第 ${index} 个分片上传失败：重试 ${attempt + 1}`);
+          }
+        }
+        return false;
+      };
+
+      // 并发上传
+      const results = await Promise.all(chunks.map((chunk, index) => uploadChunk(chunk, index)));
+      const failedIndex = results.findIndex(success => !success);
+      if (failedIndex !== -1) {
+        // 清理服务端
+        await fetch('/file/clear', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ filename: file.name })
+        });
+
+        alert(`第 ${failedIndex + 1} 个分片上传失败多次，上传终止`);
+        return;
+      }
+
+      // 全部上传成功，合并分片
+      const completeResp = await fetch('/file/upcomplete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ filename: file.name })
+      });
+
+      const completeData = await completeResp.json();
+      if (completeData.success) {
+        alert("上传完成！");
+        loadFiles();
+      } else {
+        alert("合并失败：" + completeData.message);
+      }
+    }
+    function previewFile(name) {
+      fetch('/file/preview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          path: currentPath,
+          filename: name
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          // 根据 MIME 类型或文件类型判断预览方式
+          const url = data.url;
+          const type = data.type;
+
+          if (type.startsWith('text/')) {
+            window.open(url, '_blank');  // 可打开一个新页面查看文本
+          } else if (type.startsWith('video/')) {
+            const videoWindow = window.open('', '_blank');
+            videoWindow.document.write(`
+              <html>
+                <head><title>视频预览</title></head>
+                <body style="margin:0;display:flex;align-items:center;justify-content:center;background:#000;">
+                  <video controls autoplay style="max-width:100%;max-height:100%;">
+                    <source src="${url}" type="${type}">
+                    您的浏览器不支持视频播放。
+                  </video>
+                </body>
+              </html>
+            `);
+            // window.open(url, '_blank');  // 直接播放视频
+          } else if (type.startsWith('image/')) {
+            window.open(url, '_blank');  // 显示图片
+          } else if (type.startsWith('application/')) {
+            window.open(url, '_blank');  // pdf/zip
+          } else {
+            alert('暂不支持预览该类型文件，请下载后查看');
+          }
+        } else {
+          alert("预览失败：" + data.message);
+        }
+      })
+      .catch(err => {
+        console.error("预览失败", err);
+      });
+    }
+
+    function enterFolder(name) {
+      currentPath = currentPath ? `${currentPath}/${name}` : name;
+      loadFiles();
+    }
+
+    function goBack() {
+      if (!currentPath || currentPath === "") {
+        alert("已经在根目录，无法返回上一层。");
+        return;
+      }
+      if (currentPath.includes("/")) {
+        currentPath = currentPath.substring(0, currentPath.lastIndexOf("/"));
+      } else {
+        currentPath = "";
+      }
+      loadFiles();
+    }
+
+    function goToRoot() {
+      currentPath = "";
+      loadFiles();
+    }
+
+    function isValid(name) {
+      if (!name || name.trim() === "") {
+        alert("文件夹名不能为空或仅为空格！");
+        return false;
+      }
+
+      // 禁止特殊字符（Windows/Unix通用）
+      const invalidChars = /[\\\/:*?"<>|]/;
+      if (invalidChars.test(name)) {
+        alert("文件夹名不能包含以下字符：\\ / : * ? \" < > |");
+        return false;
+      }
+
+      // 禁止 .. 等路径穿越操作
+      if (name.includes("..")) {
+        alert("文件夹名不能包含 \"..\"");
+        return false;
+      }
+
+      if (name.length > 15) {
+        alert("文件夹名过长（不能超过15字符）");
+        return false;
+      }
+
+      return true;
+    }
+
+
+
+    function createFolder() {
+      const name = prompt("请输入新文件夹名称：");
+      if (!isValid(name)) return;
+
+      fetch('/api/createFolder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ folderName: name, path: currentPath })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            alert("文件夹创建成功");
+            loadFiles();
+          } else {
+            alert("创建失败：" + data.message);
+          }
+        })
+        .catch(err => {
+          console.error("创建失败", err);
+        });
+    }
+    function deleteItem(name, isFolder) {
+      if (!confirm(`确定要删除 ${name} 吗？`)) return;
+
+      fetch('/api/deleteItem', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          target: name,
+          path: currentPath,
+          isFolder: isFolder
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert("删除成功");
+          loadFiles();
+        } else {
+          alert("删除失败：" + data.message);
+        }
+      })
+      .catch(err => {
+        console.error("删除失败", err);
+      });
+    }
+
+    // 初始化加载
+    document.addEventListener('DOMContentLoaded', loadFiles);
+  </script>
+</body>
+</html>

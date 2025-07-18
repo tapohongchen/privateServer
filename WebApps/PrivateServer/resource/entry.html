@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>私人服务器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #f0f0f0;
+        }
+
+        h1.title {
+            font-size: 36px;
+            font-weight: bold;
+            text-align: center;
+            color: #aaff00;
+            margin-bottom: 30px;
+            background: #333;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .container {
+            width: 350px;
+            padding: 20px;
+            background: #ffffff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            text-align: left;
+            box-sizing: border-box;
+        }
+
+        h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .form-group input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        .switch {
+            margin-top: 15px;
+            font-size: 14px;
+            text-align: center;
+            color: #555;
+        }
+
+        .switch a {
+            color: #007BFF;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .switch a:hover {
+            text-decoration: underline;
+        }
+
+        #register-container {
+            display: none;
+        }
+
+        /* 登录/注册成功蓝色提示框 */
+        #success-alert {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="success-alert">提示信息</div>
+
+    <!-- 精美标题 -->
+    <h1 class="title">私人服务器</h1>
+
+    <!-- 登录界面 -->
+    <div class="container" id="login-container">
+        <h2>登录</h2>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="login-username">用户名</label>
+                <input type="text" id="login-username" placeholder="请输入用户名" required>
+            </div>
+            <div class="form-group">
+                <label for="login-password">密码</label>
+                <input type="password" id="login-password" placeholder="请输入密码" required>
+            </div>
+            <button type="submit" class="btn">登录</button>
+        </form>
+        <div class="switch">
+            没有账号？<a onclick="showRegister()">去注册账号</a>
+        </div>
+    </div>
+
+    <!-- 注册界面 -->
+    <div class="container" id="register-container">
+        <h2>注册</h2>
+        <form id="register-form">
+            <div class="form-group">
+                <label for="register-username">用户名</label>
+                <input type="text" id="register-username" placeholder="请输入用户名" required>
+                <div id="username-error" style="color: red; font-size: 12px; display: none; margin-top: 5px;">
+                    用户名在3到10位间，只能包含字母、数字和下划线
+            </div>
+            <div class="form-group">
+                <label for="register-password">密码</label>
+                <input type="password" id="register-password" placeholder="请输入密码" required>
+            </div>
+            <button type="submit" class="btn">注册</button>
+        </form>
+        <div class="switch">
+            已有账号？<a onclick="showLogin()">返回登录</a>
+        </div>
+    </div>
+
+    <script>
+        // 显示蓝色提示框
+        function showAlert(message) {
+            const alertBox = document.getElementById('success-alert');
+            alertBox.textContent = message;
+            alertBox.style.display = 'block';
+            setTimeout(() => {
+                alertBox.style.display = 'none';
+            }, 1000);
+        }
+
+        // 切换注册和登录界面
+        function showRegister() {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('register-container').style.display = 'block';
+        }
+
+        function showLogin() {
+            document.getElementById('register-container').style.display = 'none';
+            document.getElementById('login-container').style.display = 'block';
+        }
+        // 检验是否合法
+        function isValidUsername(username) {
+            // 只能包含字母、数字、下划线
+            const pattern = /^[a-zA-Z0-9_]{2,16}$/;
+            return pattern.test(username);
+        }
+
+        // 登录表单提交
+        document.getElementById('login-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+                .then(response => {
+                    // 先检查响应状态
+                    if (response.status === 403) {
+                        showAlert('账号已在其他地方登录！');
+                        throw new Error('已在其他地方登录');
+                    }
+                    
+                    // 检查其他状态和内容类型
+                    const contentType = response.headers.get('content-type');
+                    if (response.status === 200) {
+                        if (contentType && contentType.includes('application/json')) {
+                            return response.json();
+                        } else {
+                            throw new Error('返回格式错误');
+                        }
+                    } else if (response.status === 401) {
+                        showAlert('账号或密码错误！');
+                        throw new Error('认证失败');
+                    } else {
+                        throw new Error('请求失败');
+                    }
+                })
+                .then(data => {
+                    if (data && data.userId) {
+                        sessionStorage.setItem('userId', data.userId);
+                        showAlert('登录成功！');
+                        // 使用重定向而不是fetch
+                        window.location.href = '/menu';
+                    } else {
+                        throw new Error('无效的响应数据');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    if (!error.message.includes('已在其他地方登录') && 
+                        !error.message.includes('认证失败')) {
+                        showAlert('操作失败，请重试');
+                    }
+                });
+        });
+
+        // 注册表单提交
+        document.getElementById('register-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const username = document.getElementById('register-username').value;
+            const password = document.getElementById('register-password').value;
+            const usernameErrorDiv = document.getElementById('username-error');
+
+            if (!isValidUsername(username)) {
+                usernameErrorDiv.style.display = 'block';
+                return; // 不发送请求
+            }
+            else
+            {
+                usernameErrorDiv.style.display = 'none';
+            }
+
+            fetch('/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+                .then(response => {
+                    if (response.status === 200) {
+                        showAlert('注册成功！');
+
+                        // 将注册的用户名和密码填充到登录输入框
+                        document.getElementById('login-username').value = username;
+                        document.getElementById('login-password').value = password;
+
+                        setTimeout(showLogin, 1000); // 1秒后回到登录界面
+                    } 
+                    else if (response.status === 409) {
+                        const message = response.data.message;
+                        if (message === 'username is invalid') {
+                            showAlert('用户名非法，请重新输入！');
+                        } else if (message === 'username already exists') {
+                            showAlert('用户名已存在，请重新输入！');
+                        } else {
+                            showAlert('注册失败：' + message);
+                        }
+                        // setTimeout(showRegister, 1000);
+                    }
+                })
+                // .catch(error => console.error('注册错误:', error));
+                .catch(error => {
+                    console.error('Error:', error);
+                    if (!error.message.includes('username is invalid') && 
+                        !error.message.includes('username already exists')) {
+                        showAlert('操作失败，请重试');
+                    }
+                });
+        });
+
+    </script>
+</body>
+
+</html>

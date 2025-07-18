@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>五子棋游戏后台</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .stat-item {
+            margin: 20px 0;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        /* 添加加载动画样式 */
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+        .error {
+            color: #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div id="logout-bar" style="
+        position: absolute;
+        top: 8px;
+        right: 20px;
+        ">
+        <button onclick="logout()" style="
+            padding: 4px 12px;
+            font-size: 0.9em;
+            background-color: #ff4d4f;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        ">🚪 退出</button>
+    </div>
+    <div class="container">
+        <h1>五子棋游戏后台统计</h1>
+        <div class="stat-item">
+            <strong>当前在线人数：</strong>
+            <span id="curOnline" class="loading">loading...</span>
+        </div>
+        <div class="stat-item">
+            <strong>历史最高在线：</strong>
+            <span id="maxOnline" class="loading">loading...</span>
+        </div>
+        <div class="stat-item">
+            <strong>注册用户总数：</strong>
+            <span id="totalUser" class="loading">loading...</span>
+        </div>
+    </div>
+
+    <script>
+        function logout() {
+            fetch('/user/logout', {
+                method: 'POST',
+                credentials: 'include'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.message === "logout successful") {
+                window.location.href = "/";
+                } else {
+                alert("退出失败：" + data.message);
+                }
+            })
+            .catch(err => {
+                console.error("退出请求失败", err);
+                alert("网络错误，退出失败");
+            });
+        }
+        function updateStats() {
+            console.log('Fetching backend data...');
+            
+            fetch('/backend_data', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin'  // 添加凭证支持
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Received data:', data);
+                document.getElementById('curOnline').textContent = data.curOnline;
+                document.getElementById('maxOnline').textContent = data.maxOnline;
+                document.getElementById('totalUser').textContent = data.totalUser;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                ['curOnline', 'maxOnline', 'totalUser'].forEach(id => {
+                    document.getElementById(id).textContent = 'Error loading data';
+                });
+            });
+        }
+
+        window.addEventListener('load', updateStats);
+        setInterval(updateStats, 30000);
+    </script>
+</body>
+</html>
